@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Annotated
-
-from mcp.server.fastmcp import FastMCP, Tool
+from mcp.server.fastmcp import FastMCP
 
 from .azure import AzureDevOpsStoryCreator, AzureDevOpsError
 from .config import SettingsError, load_settings
@@ -40,12 +38,7 @@ def list_resources() -> list[dict]:
         "required": ["title", "description"],
     },
 )
-async def create_story(
-    title: Annotated[str, Tool(description="Story title supplied by the caller")],
-    description: Annotated[
-        str, Tool(description="Story description supplied by the caller")
-    ],
-) -> str:
+async def create_story(title: str, description: str) -> str:
     """Create a user story in Azure DevOps."""
 
     try:
