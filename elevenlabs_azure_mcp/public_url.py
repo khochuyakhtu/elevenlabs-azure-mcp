@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import Iterator
-from dataclasses import dataclass
 import os
 
 try:  # pyngrok is an optional dependency at runtime
@@ -32,37 +31,61 @@ class PublicURLError(RuntimeError):
     """Raised when a public URL tunnel cannot be created."""
 
 
-@dataclass(frozen=True)
-class PublicURLConfig:
-    """Configuration needed to create a public URL tunnel."""
-
-    enabled: bool
-    authtoken: str | None = None
-    proto: str = "http"
-
-    @classmethod
-    def from_environment(cls) -> "PublicURLConfig":
-        """Build configuration by inspecting environment variables."""
-
-        value = os.environ.get("MCP_PUBLIC_URL", "").strip().lower()
-        enabled = value in {"1", "true", "yes", "on"}
-        authtoken = os.environ.get("MCP_PUBLIC_URL_AUTHTOKEN") or os.environ.get(
-            "NGROK_AUTHTOKEN"
-        )
-        proto = os.environ.get("MCP_PUBLIC_URL_PROTO", "http")
-        return cls(
-            enabled=enabled,
-            authtoken=authtoken,
-            proto=proto,
-        )
-
-
 def _default_ngrok_path() -> str | None:
-    """Return the built-in ngrok executable path for the current platform."""
+    """Return a likely ngrok executable path for the current platform."""
 
-    if os.name == "nt":
-        # Use the standard installation path for the Windows ngrok client.
-        return r"C:\\Program Files\\ngrok\\ngrok.exe"
+    if os.name != "nt":
+        return None
+
+    candidates: list[str] = []
+
+    program_files = os.environ.get("ProgramFiles")
+    if program_files:
+        candidates.append(os.path.join(program_files, "ngrok", "ngrok.exe"))
+
+    program_files_x86 = os.environ.get("ProgramFiles(x86)")
+    if program_files_x86:
+        candidates.append(os.path.join(program_files_x86, "ngrok", "ngrok.exe"))
+
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        candidates.append(
+            os.path.join(local_app_data, "Microsoft", "WindowsApps", "ngrok.exe")
+        )
+
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+
+    return None
+
+
+def _pick_ngrok_path(configured_path: str | None) -> str | None:
+    """Return the ngrok executable path, validating configured values."""
+
+    def _is_executable(path: str) -> bool:
+        if not os.path.exists(path):
+            return False
+
+        if os.name == "nt":
+            return True
+
+        return os.access(path, os.X_OK)
+
+    if configured_path:
+        expanded_path = os.path.expanduser(configured_path)
+
+        if _is_executable(expanded_path):
+            return expanded_path
+
+        raise PublicURLError(
+            f"Configured ngrok executable not found or not executable: {configured_path}"
+        )
+
+    default_path = _default_ngrok_path()
+
+    if default_path and _is_executable(default_path):
+        return default_path
 
     return None
 
@@ -74,6 +97,7 @@ def create_public_url(
     *,
     authtoken: str | None = None,
     proto: str = "http",
+    ngrok_path: str | None = None,
 ) -> Iterator[str]:
     """Create a public URL for the local MCP server.
 
@@ -95,10 +119,10 @@ def create_public_url(
     if authtoken:
         default_conf.auth_token = authtoken
 
-    ngrok_path = _default_ngrok_path()
+    resolved_ngrok_path = _pick_ngrok_path(ngrok_path)
 
-    if ngrok_path:
-        default_conf.ngrok_path = ngrok_path
+    if resolved_ngrok_path:
+        default_conf.ngrok_path = resolved_ngrok_path
 
     try:
         tunnel = ngrok.connect(addr=f"{host}:{port}", proto=proto, bind_tls=True)
@@ -114,4 +138,4 @@ def create_public_url(
             ngrok.kill()
 
 
-__all__ = ["PublicURLConfig", "PublicURLError", "create_public_url"]
+__all__ = ["PublicURLError", "create_public_url"]

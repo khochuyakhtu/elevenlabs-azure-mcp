@@ -11,8 +11,8 @@ from typing import NoReturn
 from mcp.server.fastmcp import FastMCP
 
 from .azure import AzureDevOpsStoryCreator, AzureDevOpsError
-from .config import SettingsError, load_settings
-from .public_url import PublicURLConfig, PublicURLError, create_public_url
+from .config import PublicURLConfig, SettingsError, load_settings
+from .public_url import PublicURLError, create_public_url
 
 app = FastMCP("elevenlabs-azure-mcp")
 
@@ -117,7 +117,12 @@ def _run_interactive_cli() -> NoReturn:
 def _run_jsonrpc_server(transport: str | None = None) -> None:
     """Run the JSON-RPC MCP server, optionally exposing it via a public URL."""
 
-    public_url_config = PublicURLConfig.from_environment()
+    try:
+        settings = load_settings()
+    except SettingsError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+    public_url_config: PublicURLConfig = settings.public_url
 
     if not public_url_config.enabled:
         app.run(transport=transport)
@@ -129,6 +134,7 @@ def _run_jsonrpc_server(transport: str | None = None) -> None:
             port=app.settings.port,
             authtoken=public_url_config.authtoken,
             proto=public_url_config.proto,
+            ngrok_path=public_url_config.ngrok_path,
         ) as public_url:
             print(f"Public MCP server available at: {public_url}", flush=True)
             app.run(transport="sse")
