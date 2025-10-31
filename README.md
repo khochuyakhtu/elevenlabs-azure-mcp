@@ -34,6 +34,17 @@ pip install -e .
 python -m elevenlabs_azure_mcp.server
 ```
 
-The tool exposes a single MCP action named `create_story` that accepts a title
-and description. It returns a confirmation message containing the Azure DevOps
-work item ID and the web URL to the newly created story.
+When executed with an MCP-compatible client (such as an ElevenLabs voice agent)
+the process expects JSON-RPC messages on stdin/stdout. If you invoke the module
+directly from a terminal the server detects interactive mode and provides a
+simple CLI. Enter commands using the following format:
+
+```
+create story with title "<title>" and description "<description>"
+```
+
+Type `exit` (or press <kbd>Ctrl</kbd> + <kbd>D</kbd>) to leave the CLI. The tool
+returns a confirmation message containing the Azure DevOps work item ID and the
+web URL to the newly created story. Set the environment variable
+`ELEVENLABS_AZURE_MCP_FORCE_CLI=1` to force the CLI mode when running in an
+environment where stdin is not detected as a TTY (useful for automated tests).
