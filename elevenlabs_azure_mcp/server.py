@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+
 from mcp.server.fastmcp import FastMCP
 
 from .azure import AzureDevOpsStoryCreator, AzureDevOpsError
 from .config import SettingsError, load_settings
+from .public_url import PublicURLConfig, PublicURLError, create_public_url
 
 app = FastMCP("elevenlabs-azure-mcp")
 
@@ -55,5 +57,27 @@ async def create_story(title: str, description: str) -> str:
 __all__ = ["app", "create_story"]
 
 
+def main() -> None:  # pragma: no cover - CLI entry point
+    """Run the MCP server, optionally exposing it via a public URL."""
+
+    public_url_config = PublicURLConfig.from_environment()
+
+    if not public_url_config.enabled:
+        app.run()
+        return
+
+    try:
+        with create_public_url(
+            host=app.settings.host,
+            port=app.settings.port,
+            authtoken=public_url_config.authtoken,
+            proto=public_url_config.proto,
+        ) as public_url:
+            print(f"Public MCP server available at: {public_url}", flush=True)
+            app.run(transport="sse")
+    except PublicURLError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+
 if __name__ == "__main__":  # pragma: no cover - CLI entry point
-    app.run()
+    main()
