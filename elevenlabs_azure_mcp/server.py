@@ -18,6 +18,9 @@ _CLI_COMMAND_RE = re.compile(
     re.IGNORECASE,
 )
 
+_TRUTHY_VALUES = {"1", "true", "yes", "on"}
+_FALSY_VALUES = {"0", "false", "no", "off"}
+
 
 @app.tool(
     name="create_story",
@@ -111,8 +114,47 @@ def _run_cli() -> None:
 __all__ = ["app", "create_story"]
 
 
+def _env_flag(name: str) -> bool | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    if normalized in _TRUTHY_VALUES:
+        return True
+    if normalized in _FALSY_VALUES:
+        return False
+    return True
+
+
+def _should_run_cli(argv: list[str]) -> bool:
+    explicit_flag: bool | None = None
+    remaining: list[str] = []
+
+    for arg in argv:
+        if arg == "--cli":
+            explicit_flag = True
+        elif arg == "--json":
+            explicit_flag = False
+        else:
+            remaining.append(arg)
+
+    sys.argv = [sys.argv[0], *remaining]
+
+    if explicit_flag is not None:
+        return explicit_flag
+
+    env_flag = _env_flag("ELEVENLABS_AZURE_MCP_FORCE_CLI")
+    if env_flag is not None:
+        return env_flag
+
+    return sys.stdin.isatty() or sys.stdout.isatty()
+
+
 if __name__ == "__main__":  # pragma: no cover - CLI entry point
-    if sys.stdin.isatty() or os.getenv("ELEVENLABS_AZURE_MCP_FORCE_CLI") == "1":
+    if _should_run_cli(sys.argv[1:]):
         _run_cli()
     else:
         app.run()
