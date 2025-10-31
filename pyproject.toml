@@ -1,0 +1,19 @@
+[project]
+name = "elevenlabs-azure-mcp"
+version = "0.1.0"
+description = "MCP server that creates Azure DevOps stories for ElevenLabs agents"
+authors = [{ name = "ElevenLabs" }]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[tool.black]
+line-length = 88
