@@ -11,32 +11,13 @@ from .config import SettingsError, load_settings
 app = FastMCP("elevenlabs-azure-mcp")
 
 
-@app.list_resources()
-def list_resources() -> list[dict]:
-    """Return a list of static resources exposed by the server."""
-
-    # The server does not expose static content yet, but FastMCP requires the
-    # handler to be defined. Returning an empty list keeps the contract intact.
-    return []
-
-
-@app.create_tool(
+@app.tool(
     name="create_story",
+    title="Create Story",
     description=(
         "Create an Azure DevOps user story. "
         "Provide a title and description gathered during the ElevenLabs call."
     ),
-    input_schema={
-        "type": "object",
-        "properties": {
-            "title": {"type": "string", "description": "Story title"},
-            "description": {
-                "type": "string",
-                "description": "Story description provided by the customer",
-            },
-        },
-        "required": ["title", "description"],
-    },
 )
 async def create_story(title: str, description: str) -> str:
     """Create a user story in Azure DevOps."""
