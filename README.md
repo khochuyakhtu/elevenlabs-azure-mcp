@@ -34,6 +34,21 @@ pip install -e .
 python -m elevenlabs_azure_mcp.server
 ```
 
+When started from a terminal, the server automatically switches to an
+interactive prompt so you can type natural-language commands such as:
+
+```
+create story with title "hello test" and description "50"
+```
+
+Use `quit` or `exit` to leave the prompt. If you need the raw JSON-RPC MCP
+transport (for example, when embedding in another agent runtime), run the
+server with:
+
+```
+python -m elevenlabs_azure_mcp.server --mode jsonrpc
+```
+
 The tool exposes a single MCP action named `create_story` that accepts a title
 and description. It returns a confirmation message containing the Azure DevOps
 work item ID and the web URL to the newly created story.
