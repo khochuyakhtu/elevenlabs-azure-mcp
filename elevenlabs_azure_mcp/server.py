@@ -76,7 +76,7 @@ def _run_interactive_cli() -> NoReturn:
 
     pattern = re.compile(
         r'^\s*create\s+story\s+with\s+title\s+"(?P<title>.+?)"\s+'
-        r'and\s+description\s+"(?P<description>.+)"\s*$'
+        r'and\s+description\s+"(?P<description>.+?)"\s*(?:[.!?])?\s*$'
     )
 
     while True:
