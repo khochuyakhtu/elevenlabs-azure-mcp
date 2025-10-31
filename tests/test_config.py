@@ -57,3 +57,20 @@ def test_load_settings_returns_settings_when_required_variables_present():
     assert settings.azure.area_path == "area/path"
     assert settings.azure.iteration_path == "iteration/path"
     assert settings.azure.api_version == "7.0"
+
+
+def test_load_settings_normalizes_optional_environment_variables():
+    env = {
+        "AZURE_DEVOPS_ORGANIZATION": "my-org",
+        "AZURE_DEVOPS_PROJECT": "my-project",
+        "AZURE_DEVOPS_PAT": "pat-123",
+        "AZURE_DEVOPS_AREA_PATH": "   ",
+        "AZURE_DEVOPS_API_VERSION": "  7.1-preview  ",
+    }
+
+    with patch.dict(os.environ, env, clear=True):
+        settings = load_settings()
+
+    assert settings.azure.area_path is None
+    assert settings.azure.iteration_path is None
+    assert settings.azure.api_version == "7.1-preview"

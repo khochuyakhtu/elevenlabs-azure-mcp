@@ -81,13 +81,29 @@ def load_settings() -> Settings:
 
         raise SettingsError(". ".join(problems) + ".")
 
+    def _optional_env(name: str) -> str | None:
+        raw_value = os.environ.get(name)
+        if raw_value is None:
+            return None
+
+        value = raw_value.strip()
+        return value or None
+
+    def _env_with_default(name: str, default: str) -> str:
+        raw_value = os.environ.get(name)
+        if raw_value is None:
+            return default
+
+        value = raw_value.strip()
+        return value or default
+
     azure_settings = AzureDevOpsSettings(
         organization=required["AZURE_DEVOPS_ORGANIZATION"],
         project=required["AZURE_DEVOPS_PROJECT"],
         personal_access_token=required["AZURE_DEVOPS_PAT"],
-        area_path=os.environ.get("AZURE_DEVOPS_AREA_PATH"),
-        iteration_path=os.environ.get("AZURE_DEVOPS_ITERATION_PATH"),
-        api_version=os.environ.get("AZURE_DEVOPS_API_VERSION", "7.0"),
+        area_path=_optional_env("AZURE_DEVOPS_AREA_PATH"),
+        iteration_path=_optional_env("AZURE_DEVOPS_ITERATION_PATH"),
+        api_version=_env_with_default("AZURE_DEVOPS_API_VERSION", "7.0"),
     )
 
     elevenlabs_settings = ElevenLabsSettings(
