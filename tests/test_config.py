@@ -20,6 +20,10 @@ def test_load_settings_returns_hardcoded_azure_settings_without_env():
     assert settings.azure.area_path is None
     assert settings.azure.iteration_path is None
     assert settings.azure.api_version == "7.0"
+    assert settings.public_url.enabled is False
+    assert settings.public_url.authtoken is None
+    assert settings.public_url.proto == "http"
+    assert settings.public_url.ngrok_path is None
 
 
 def test_load_settings_normalizes_optional_environment_variables():

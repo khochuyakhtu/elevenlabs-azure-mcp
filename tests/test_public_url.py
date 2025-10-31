@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
-from elevenlabs_azure_mcp.public_url import (
-    PublicURLConfig,
-    PublicURLError,
-    create_public_url,
-)
+import elevenlabs_azure_mcp.public_url as public_url
+from elevenlabs_azure_mcp.config import PublicURLConfig
+from elevenlabs_azure_mcp.public_url import PublicURLError, create_public_url
 
 
 def test_config_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -17,12 +17,14 @@ def test_config_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MCP_PUBLIC_URL", "true")
     monkeypatch.setenv("MCP_PUBLIC_URL_AUTHTOKEN", "token")
     monkeypatch.setenv("MCP_PUBLIC_URL_PROTO", "tcp")
+    monkeypatch.setenv("MCP_PUBLIC_URL_NGROK_PATH", "~/bin/ngrok")
 
     config = PublicURLConfig.from_environment()
 
     assert config.enabled is True
     assert config.authtoken == "token"
     assert config.proto == "tcp"
+    assert config.ngrok_path == "~/bin/ngrok"
 
 
 def test_create_public_url_configures_ngrok(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -71,8 +73,8 @@ def test_create_public_url_configures_ngrok(monkeypatch: pytest.MonkeyPatch) -> 
         raising=False,
     )
     monkeypatch.setattr(
-        "elevenlabs_azure_mcp.public_url._default_ngrok_path",
-        lambda: "C:/ngrok.exe",
+        "elevenlabs_azure_mcp.public_url._pick_ngrok_path",
+        lambda configured_path: "C:/ngrok.exe",
     )
 
     with create_public_url(
@@ -80,6 +82,7 @@ def test_create_public_url_configures_ngrok(monkeypatch: pytest.MonkeyPatch) -> 
         port=9999,
         authtoken="secret",
         proto="http",
+        ngrok_path="C:/ngrok.exe",
     ) as url:
         assert url == "https://example.ngrok.app"
 
@@ -113,3 +116,40 @@ def test_create_public_url_wraps_permission_error(monkeypatch: pytest.MonkeyPatc
             pass
 
     assert "Failed to create ngrok tunnel" in str(excinfo.value)
+
+
+def test_pick_ngrok_path_validates_configured_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """User-provided paths should be returned when they exist."""
+
+    ngrok_exe = tmp_path / "ngrok.exe"
+    ngrok_exe.write_text("binary")
+
+    monkeypatch.setattr(public_url.os, "name", "nt", raising=False)
+
+    resolved = public_url._pick_ngrok_path(str(ngrok_exe))
+
+    assert resolved == str(ngrok_exe)
+
+
+def test_pick_ngrok_path_raises_for_missing_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A helpful error should surface when a configured path is invalid."""
+
+    monkeypatch.setattr(public_url.os, "name", "nt", raising=False)
+
+    with pytest.raises(PublicURLError):
+        public_url._pick_ngrok_path("C:/missing/ngrok.exe")
+
+
+def test_default_ngrok_path_checks_windows_apps(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The WindowsApps installation should be detected when present."""
+
+    ngrok_exe = tmp_path / "Microsoft" / "WindowsApps" / "ngrok.exe"
+    ngrok_exe.parent.mkdir(parents=True)
+    ngrok_exe.write_text("binary")
+
+    monkeypatch.setattr(public_url.os, "name", "nt", raising=False)
+    monkeypatch.setenv("ProgramFiles", "")
+    monkeypatch.setenv("ProgramFiles(x86)", "")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    assert public_url._default_ngrok_path() == str(ngrok_exe)
