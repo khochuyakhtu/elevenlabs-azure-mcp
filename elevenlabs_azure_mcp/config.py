@@ -44,26 +44,42 @@ _REQUIRED_ENVIRONMENT = {
 }
 
 
-def _get_required_env(name: str) -> str:
-    try:
-        value = os.environ[name]
-    except KeyError as exc:  # pragma: no cover - defensive branch
-        raise SettingsError(
-            f"Missing required environment variable: {name}."
-        ) from exc
-
-    if not value.strip():
-        raise SettingsError(
-            f"Environment variable {name} must not be empty."
-        )
-
-    return value
-
-
 def load_settings() -> Settings:
     """Load settings from environment variables."""
 
-    required = {name: _get_required_env(name) for name in _REQUIRED_ENVIRONMENT}
+    missing: list[str] = []
+    empty: list[str] = []
+    required: dict[str, str] = {}
+
+    for name in _REQUIRED_ENVIRONMENT:
+        raw_value = os.environ.get(name)
+        if raw_value is None:
+            missing.append(name)
+            continue
+
+        value = raw_value.strip()
+        if not value:
+            empty.append(name)
+            continue
+
+        required[name] = value
+
+    if missing or empty:
+        problems: list[str] = []
+        if missing:
+            joined = ", ".join(sorted(missing))
+            label = "variables" if len(missing) > 1 else "variable"
+            problems.append(
+                f"Missing required environment {label}: {joined}"
+            )
+        if empty:
+            joined = ", ".join(sorted(empty))
+            label = "variables" if len(empty) > 1 else "variable"
+            problems.append(
+                f"Environment {label} must not be empty: {joined}"
+            )
+
+        raise SettingsError(". ".join(problems) + ".")
 
     azure_settings = AzureDevOpsSettings(
         organization=required["AZURE_DEVOPS_ORGANIZATION"],
