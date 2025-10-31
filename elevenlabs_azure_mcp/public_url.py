@@ -50,7 +50,21 @@ class PublicURLConfig:
             "NGROK_AUTHTOKEN"
         )
         proto = os.environ.get("MCP_PUBLIC_URL_PROTO", "http")
-        return cls(enabled=enabled, authtoken=authtoken, proto=proto)
+        return cls(
+            enabled=enabled,
+            authtoken=authtoken,
+            proto=proto,
+        )
+
+
+def _default_ngrok_path() -> str | None:
+    """Return the built-in ngrok executable path for the current platform."""
+
+    if os.name == "nt":
+        # Use the standard installation path for the Windows ngrok client.
+        return r"C:\\Program Files\\ngrok\\ngrok.exe"
+
+    return None
 
 
 @contextlib.contextmanager
@@ -76,12 +90,19 @@ def create_public_url(
 
     conf, ngrok = _require_pyngrok()
 
+    default_conf = conf.get_default()
+
     if authtoken:
-        conf.get_default().auth_token = authtoken
+        default_conf.auth_token = authtoken
+
+    ngrok_path = _default_ngrok_path()
+
+    if ngrok_path:
+        default_conf.ngrok_path = ngrok_path
 
     try:
         tunnel = ngrok.connect(addr=f"{host}:{port}", proto=proto, bind_tls=True)
-    except PyngrokNgrokError as exc:  # pragma: no cover - requires network access
+    except (PyngrokNgrokError, OSError) as exc:  # pragma: no cover - requires network access
         raise PublicURLError("Failed to create ngrok tunnel") from exc
 
     try:
