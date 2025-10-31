@@ -7,8 +7,25 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 import os
 
-from pyngrok import conf, ngrok
-from pyngrok.exception import PyngrokNgrokError
+try:  # pyngrok is an optional dependency at runtime
+    from pyngrok import conf as _pyngrok_conf, ngrok as _pyngrok_ngrok
+    from pyngrok.exception import PyngrokNgrokError
+except ImportError:  # pragma: no cover - exercised when dependency missing
+    _pyngrok_conf = None
+    _pyngrok_ngrok = None
+    PyngrokNgrokError = RuntimeError
+
+
+def _require_pyngrok() -> tuple[object, object]:
+    """Return pyngrok modules or raise a clear error if unavailable."""
+
+    if _pyngrok_conf is None or _pyngrok_ngrok is None:
+        raise PublicURLError(
+            "pyngrok is required to create public URLs. Install the 'pyngrok' "
+            "package or disable public URL support by unsetting MCP_PUBLIC_URL."
+        )
+
+    return _pyngrok_conf, _pyngrok_ngrok
 
 
 class PublicURLError(RuntimeError):
@@ -56,6 +73,8 @@ def create_public_url(
     Yields:
         The public URL that forwards traffic to the MCP server.
     """
+
+    conf, ngrok = _require_pyngrok()
 
     if authtoken:
         conf.get_default().auth_token = authtoken
